@@ -1,0 +1,62 @@
+library(fuzzyjoin)
+density_diff <- function(data,eval_data,var,target,new_column){
+  data[[paste0(var,"temp")]] <- data[[var]]
+  eval_data[[paste0(var,"temp")]] <- eval_data[[var]]
+          
+  #standardize variable between 0 and 1
+  data[[var]] <- (data[[var]] - min(data[[var]]))/(max(data[[var]]) - min(data[[var]]))
+  eval_data[[var]] <- (eval_data[[var]] - min(eval_data[[var]]))/(max(eval_data[[var]]) - min(eval_data[[var]]))
+              
+  ## Calculate density estimates
+  g1 <- ggplot(data, aes(x=data[[var]], group=target, colour=target)) +
+    geom_density(data = data) + xlim(min(data[[var]]), max(data[[var]]))
+  gg1 <- ggplot_build(g1)
+  # construct the dataset
+  x <- gg1$data[[1]]$x[gg1$data[[1]]$group == 1]
+  y1 <- gg1$data[[1]]$y[gg1$data[[1]]$group == 1]
+  y2 <- gg1$data[[1]]$y[gg1$data[[1]]$group == 2]
+  df2 <- data.frame(x = x, ymin = pmin(y1, y2), ymax = pmax(y1, y2), side=(y1<y2), ydiff = y2-y1)
+  ##creating the second graph object
+  g3 <- ggplot(df2) +
+    geom_line(aes(x = x, y = ydiff, colour = side)) +
+    geom_area(aes(x = x, y = ydiff, fill = side, alpha = 0.4)) +
+    guides(alpha = FALSE, fill = FALSE)
+  
+  data$join <- data[[var]]
+  df2$join <- df2$x
+  temp <- difference_left_join(data,df2, by="join", max_dist =.001)
+  means <- aggregate(ydiff ~ temp$join.x, temp, mean)
+  
+  colnames(means) <- c("std_var","density_diff")
+  
+  new_data <- merge(means,data, by.x ="std_var", by.y =var)
+  new_data$std_var <- NULL
+  new_data$join <- NULL
+  new_data[new_column] <- new_data$density_diff
+  new_data$density_diff <- NULL
+  ###################same thing with eval data ############################
+  eval_data$join <- eval_data[[var]]
+  df2$join <- df2$x
+  temp <- difference_left_join(eval_data,df2, by="join", max_dist =.001)
+  means <- aggregate(ydiff ~ temp$join.x, temp, mean)
+                
+  ##new stuff
+  colnames(means) <- c("std_var","density_diff")
+  #data["key"] <- (var - min(var))/(max(var) - min(var))
+  
+  eval_data2 <- merge(means,eval_data, by.x ="std_var", by.y =var)
+  eval_data2$std_var <- NULL
+  eval_data2$join <- NULL
+  eval_data2[new_column] <- eval_data2$density_diff
+  eval_data2$density_diff <- NULL
+  
+  eval_data2[[var]] <- eval_data2[[paste0(var,"temp")]]
+  eval_data2[[paste0(var,"temp")]] <- NULL
+  
+  new_data[[var]] <- new_data[[paste0(var,"temp")]]
+  new_data[[paste0(var,"temp")]] <- NULL
+  
+  mylist <- list(g1,g3,new_data,eval_data2)
+  names(mylist)<- c("dist","dist_diff","new_data_training","new_data_eval")
+  return(mylist)
+}
