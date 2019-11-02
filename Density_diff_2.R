@@ -24,7 +24,7 @@ density_diff <- function(data,eval_data,var,target,new_column){
   
   data$join <- data[[var]]
   df2$join <- df2$x
-  temp <- difference_left_join(data,df2, by="join", max_dist =.1)
+  temp <- difference_left_join(data,df2, by="join", max_dist =.01)
   means <- aggregate(ydiff ~ temp$join.x, temp, mean)
   
   colnames(means) <- c("std_var","density_diff")
@@ -37,7 +37,7 @@ density_diff <- function(data,eval_data,var,target,new_column){
   ###################same thing with eval data ############################
   eval_data$join <- eval_data[[var]]
   df2$join <- df2$x
-  temp <- difference_left_join(eval_data,df2, by="join", max_dist =.001)
+  temp <- difference_left_join(eval_data,df2, by="join", max_dist =.01)
   means <- aggregate(ydiff ~ temp$join.x, temp, mean)
                 
   ##new stuff
